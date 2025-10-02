@@ -1,0 +1,57 @@
+services:
+  streamlit:
+    build:
+      context: .
+    env_file:
+      - .env
+    ports:
+      - "8501:8501"
+    volumes:
+      - './:/var/www/cba-langchain-streamlit'
+    networks:
+      - streamlit-net
+    depends_on:
+      - pgsql
+  pgsql:
+    image: 'postgres:17'
+    env_file:
+      - .env
+    ports:
+      - '${PGSQL_PORT}:5432'
+    volumes:
+      - './:/docker-entrypoint-initdb.d'
+      - 'streamlit-net-pgsql:/var/lib/postgresql/data'
+    networks:
+      - streamlit-net
+    healthcheck:
+      test:
+        - CMD
+        - pg_isready
+        - '-q'
+        - '-d'
+        - '${POSTGRES_DB}'
+        - '-U'
+        - '${POSTGRES_USER}'
+      retries: 3
+      timeout: 5s
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5050:80"
+    volumes:
+      - 'streamlit-net-pgadmin:/var/lib/pgadmin'
+    networks:
+      - streamlit-net
+    depends_on:
+      - pgsql
+volumes:
+  streamlit-net-pgsql:
+    driver: local
+  streamlit-net-pgadmin:
+    driver: local
+networks:
+  streamlit-net:
+    driver: bridge

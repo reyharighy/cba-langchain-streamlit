@@ -1,0 +1,10 @@
+.ruff_cache
+.dockerignore
+.env
+.gitignore
+docker-compose.yml
+Dockerfile
+playground.ipynb
+pyproject.toml
+README.md
+schema.sql

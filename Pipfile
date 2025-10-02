@@ -1,0 +1,35 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[[source]]
+url = "https://download.pytorch.org/whl/cpu"
+verify_ssl = true
+name = "pytorch_cpu"
+
+[packages]
+streamlit = "*"
+python-dotenv = "*"
+sqlalchemy = "*"
+psycopg2 = "*"
+pydantic = {extras = ["email"], version = "*"}
+langchain = "*"
+langchain-groq = "*"
+langchain-experimental = "*"
+tabulate = "*"
+e2b-code-interpreter = "==1.0.0"
+torch = {version = "==2.3.1+cpu", index = "pytorch_cpu"}
+torchvision = {version = "==0.18.1+cpu", index = "pytorch_cpu"}
+sentence-transformers = "*"
+langdetect = "*"
+translate = "*"
+nltk = "*"
+langsmith = "*"
+
+[dev-packages]
+ipykernel = "*"
+ruff = "*"
+
+[requires]
+python_version = "3.12"
