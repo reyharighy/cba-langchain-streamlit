@@ -1,4 +1,4 @@
-"""A module to manage the project session."""
+"""A module to manage user application."""
 
 # standard
 from dataclasses import dataclass
@@ -11,57 +11,62 @@ from typing import (
     Literal,
     Optional,
 )
+from uuid import UUID
 
 # third-party
 import pandas as pd
 import streamlit as st
 
 # internal
-from .chain import Chain
+from .database_management import DatabaseManagement
+from .natural_language_orchestrator import NaturalLanguageOrchestrator
 from cache import (
     load_dataframe,
-    load_manifest
+    load_manifest,
 )
-from database import (
-    index_prompt_manifest,
-    show_prompt_manifest,
-    store_prompt_manifest,
-)
+from common import streamlit_status_container
 from model import (
     Project,
+    ProjectCreate,
+    ProjectShow,
     PromptManifest,
     PromptManifestCreate,
     PromptManifestIndex,
     PromptManifestShow
 )
-from utils import streamlit_status_container
 
 @dataclass
-class SessionContext:
-    """Provide context required by several process within the session."""
+class Context:
+    """Provide context required by several process within Application class."""
 
     total_manifest: int = 0
     prompt: str = ""
-    response: Optional[Dict[str, Any]] = None
-    prompt_manifest_context: Optional[str] = None
+    react_agent_response: Optional[Dict[str, Any]] = None
+    response_summary: Optional[str] = None
 
-class Session:
-    """Manage the project assigned in the session."""
+class UserApplication:
+    """A class that implements the user application."""
 
     # Set true to run the session in the mockup mode
     mockup: bool = False
 
-    def __init__(self, project: Project) -> None:
-        """Initialize session attributes when handling the project inside the Streamlit app."""
-        self.context: SessionContext = SessionContext()
-        self.project: Project = project
-        self.chain: Chain = Chain()
+    def __init__(self) -> None:
+        """Initialize the user application instance."""
+        self.context: Context = Context()
+        self.db_management: DatabaseManagement = DatabaseManagement()
+        self.nl_orchestrator: NaturalLanguageOrchestrator = NaturalLanguageOrchestrator()
 
-    def run(self) -> None:
+    def run(self, uuids: Dict[Literal["user_id", "project_id"], UUID]) -> None:
         """Run the project session.
-        
+
         The implementation redesigns the rerun process of the Sreamlit app from top to bottom.
+
+        Args:
+            uuids: UUID of the project and user to consume.
+
         """
+        self.project: Project = self.setup_project(uuids)
+
         st.set_page_config(
             page_title=self.project.title,
             layout="wide",
@@ -91,6 +96,37 @@ class Session:
 
         self.show_toast()
 
+    def setup_project(self, uuids: Dict[Literal["user_id", "project_id"], UUID]) -> Project:
+        """Store project metadata to database if unset. Otherwise get the project metadata.
+
+        This function always compute at initialization.
+        Thus, we can start download stopwords, required when loading relevant contexts.
+
+        Args:
+            uuids: UUID of the project and user to consume.
+
+        Returns:
+            Base model of the project.
+
+        """
+        project_show: ProjectShow = ProjectShow(project_id=uuids["project_id"])
+        project: Optional[Project] = self.db_management.show_project(project_show)
+
+        if project is None:
+            project_create: ProjectCreate = ProjectCreate(
+                project_id=uuids["project_id"],
+                user_id=uuids["user_id"],
+                title="Data Penjualan Cafe Saujana",
+                datasets="dataset.csv"
+            )
+
+            new_project: Project = project_create()
+            self.db_management.store_project(new_project)
+
+            return new_project
+
+        return project
+
     def display_dataframe(self) -> None:
         """Display the dataframe inside the expander element from a given dataset path.
 
@@ -109,8 +145,8 @@ class Session:
                 width="stretch"
             )
 
-        self.chain.context.dataset_dir = self.project.dataset_dir
-        self.chain.context.dataset_file = self.project.dataset_file
+        self.nl_orchestrator.context.dataset_dir = self.project.dataset_dir
+        self.nl_orchestrator.context.dataset_file = self.project.dataset_file
 
     def load_prompt_manifests(self) -> None:
         """Load all prompt manifest model from database and setting up several attributes.
@@ -124,7 +160,9 @@ class Session:
             user_id=self.project.user_id
         )
 
-        prompt_manifests: List[PromptManifest] = index_prompt_manifest(params)
+        prompt_manifests: List[PromptManifest] = self.db_management.index_prompt_manifest(
+            params=params
+        )
 
         if prompt_manifests:
             for prompt_manifest in prompt_manifests:
@@ -133,11 +171,11 @@ class Session:
                     "context": prompt_manifest.context
                 }
 
-                self.chain.context.all_contexts.append(prompt_manifest_context)
+                self.nl_orchestrator.context.all_contexts.append(prompt_manifest_context)
                 self.execute_manifest_file(prompt_manifest.manifest_file)
 
         self.context.total_manifest = len(prompt_manifests)
-        self.chain.context.total_manifest = self.context.total_manifest
+        self.nl_orchestrator.context.total_manifest = self.context.total_manifest
 
     def execute_manifest_file(self, manifest_file: str) -> None:
         """Execute manifest file related to the project.
@@ -162,22 +200,23 @@ class Session:
         Mockup mode is used to start the session process without running LLM function.
         """
         if self.mockup:
-            self.context.response = {
+            self.context.react_agent_response = {
                 "input": f"{self.context.prompt}",
                 "output": "Example output from the response in mockup mode."
             }
 
-            self.context.prompt_manifest_context = "Example context from mockup mode."
+            self.context.response_summary = "Example contextual summary from mockup mode."
         else:
-            self.chain.prepare_agent()
-            self.context.response = self.chain.run_agent(self.context.prompt)
+            self.nl_orchestrator.prepare_react_agent()
+            self.context.react_agent_response = self.nl_orchestrator.run_react_agent(
+                prompt=self.context.prompt
+            )
 
-            if self.context.response:
-                self.chain.prepare_context()
-
-                self.context.prompt_manifest_context = self.chain.run_context(
+            if self.context.react_agent_response:
+                self.nl_orchestrator.prepare_summary_generation_agent()
+                self.context.response_summary = self.nl_orchestrator.run_summary_generation_agent(
                     prompt=self.context.prompt,
-                    response=self.context.response["output"]
+                    response=self.context.react_agent_response["output"]
                 )
 
         self.store_new_prompt_manifest()
@@ -186,29 +225,29 @@ class Session:
         """Create the new prompt manifest model and store it to database.
 
         This method will always be called in every chat request.
-        Though, the execution is determined from response and prompt manifest context.
+        Though, the execution is determined from react agent response and its summary.
         If both exist, the prompt manifest is stored to database.
         Then, the new manifest file will be created.
         """
-        if self.context.response and self.context.prompt_manifest_context:
+        if self.context.react_agent_response and self.context.response_summary:
             self.context.total_manifest += 1
 
             prompt_manifest_create: PromptManifestCreate = PromptManifestCreate(
                 project_id=self.project.project_id,
                 user_id=self.project.user_id,
                 prompt_manifest_no=self.context.total_manifest,
-                prompt=self.context.response["input"],
-                context=self.context.prompt_manifest_context
+                prompt=self.context.react_agent_response["input"],
+                context=self.context.response_summary
             )
 
             new_prompt_manifest = prompt_manifest_create()
-            store_prompt_manifest(new_prompt_manifest)
+            self.db_management.store_prompt_manifest(new_prompt_manifest)
 
             self.create_manifest_file()
 
     def create_manifest_file(self) -> None:
         """Create a new manifest file based-on the final answer of AI agent.
-        
+
         The new file will be stored inside the specified directory of the project metadata.
         The extension of file should be in .py.
         """
@@ -216,9 +255,9 @@ class Session:
         response_input: str = ""
         response_output: str = ""
 
-        if self.context.response and self.context.prompt:
+        if self.context.react_agent_response:
             response_input = self.context.prompt
-            response_output = self.context.response["output"]
+            response_output = self.context.react_agent_response["output"]
 
         with open(self.project.manifest_dir + manifest_file, "w", encoding="utf-8") as file:
             content: str = ""
@@ -243,7 +282,7 @@ class Session:
 
     def stream_new_manifest(self) -> None:
         """Fetch a newly created prompt manifest model from database.
-        
+
         The new model content will be rendered in a stream-like process to the app UI.
         """
         prompt_manifest_show_params: PromptManifestShow = PromptManifestShow(
@@ -252,7 +291,7 @@ class Session:
             prompt_manifest_no=self.context.total_manifest
         )
 
-        new_prompt_manifest: Optional[PromptManifest] = show_prompt_manifest(
+        new_prompt_manifest: Optional[PromptManifest] = self.db_management.show_prompt_manifest(
             prompt_manifest_show_params
         )
 
@@ -274,8 +313,8 @@ class Session:
             Generator to stream a sequence of word from LLM response
 
         """
-        if self.context.response:
-            for word in str(self.context.response["output"]).split(" "):
+        if self.context.react_agent_response:
+            for word in str(self.context.react_agent_response["output"]).split(" "):
                 yield word + " "
                 sleep(0.02)
 

@@ -1,17 +1,19 @@
-"""A package to manage the behaviour of Streamlit app accross rerun.
+"""A package to manage the behaviour of core functionalities within AI system.
 
 Modules:
-- **chain**: Module to manage language models using Langchain framerowk and sentence transformer.
-- **session**: Module to manage project's session within Streamlit application.
+- **database_management**: Module to manage database management.
+- **natural_language_orchestrator**: Module to manage natural language orchestrator.
+- **user_application**: module to manage user application.
 """
 
-from .chain import Chain
-
-from .session import Session
+from .database_management import DatabaseManagement
+from .natural_language_orchestrator import NaturalLanguageOrchestrator
+from .user_application import UserApplication
 
 __all__ = [
-    "Session",
-    "Chain"
+    "DatabaseManagement",
+    "NaturalLanguageOrchestrator",
+    "UserApplication",
 ]
 
 def __getattr__(name: str):

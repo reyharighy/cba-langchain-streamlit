@@ -11,15 +11,13 @@ from .project import (
     ProjectShow,
     Project
 )
-
 from .prompt_manifest import (
     PromptManifestCreate,
     PromptManifestIndex,
     PromptManifestShow,
     PromptManifest
 )
-
-from .tool_args import ExecutePythonArgs
+from .tool_args_specification import ExecutePythonArgsSchema
 
 __all__ = [
     "ProjectCreate",
@@ -29,7 +27,7 @@ __all__ = [
     "PromptManifestIndex",
     "PromptManifestShow",
     "PromptManifest",
-    "ExecutePythonArgs"
+    "ExecutePythonArgsSchema"
 ]
 
 def __getattr__(name: str):

@@ -39,19 +39,19 @@
 - [Features](#features)
 - [On Progress](#on-progress)
 - [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-    - [Usage](#usage)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Usage](#usage)
 
 ## Overview
 
 An open-source developer toolset for prototyping and managing **AI-powered, data-driven applications** with an emphasis on modularity and ease of deployment.
 
 It combines a robust backend with an intuitive **Streamlit interface**, enabling seamless:
+
 - project and prompt management,
 - real-time data interaction,
 - and AI workflow orchestration.
-
 
 ## Features
 

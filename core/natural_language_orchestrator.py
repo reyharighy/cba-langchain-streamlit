@@ -1,4 +1,4 @@
-"""A module related to chain construction using Langchain framework."""
+"""A module to manage natural language orchestrator."""
 
 # standard
 from dataclasses import (
@@ -10,7 +10,6 @@ from typing import (
     Dict,
     List,
     Literal,
-    Optional,
 )
 
 # third-party
@@ -36,12 +35,12 @@ from cache import (
     load_llm,
     load_transformer,
 )
-from model import ExecutePythonArgs
-from utils import streamlit_status_container
+from common import streamlit_status_container
+from model import ExecutePythonArgsSchema
 
 @dataclass
-class ChainContext:
-    """Provide context required by several process within the chain."""
+class Context:
+    """Provide context required by several process within Orchestrator class."""
 
     dataset_dir: str = ""
     dataset_file: str = ""
@@ -50,21 +49,15 @@ class ChainContext:
     all_contexts: List[Dict[Literal["prompt", "context"], str]] = field(default_factory=list)
     relevant_context: str = ""
 
-class Chain:
-    """Class to manage the orchestration of the runnable chain of Langchain."""
+class NaturalLanguageOrchestrator:
+    """A class that implements the natural language orchestrator."""
 
     def __init__(self) -> None:
-        """Initialize the chain orchestrator."""
-        self.context: ChainContext = ChainContext()
-        self.transformer: Optional[CrossEncoder] = None
-        self.llm: Optional[ChatGroq] = None
-        self.tools: List[StructuredTool] = []
-        self.prompt_template: Optional[ChatPromptTemplate] = None
-        self.agent: Optional[Runnable[Any, Any]] = None
-        self.agent_executor: Optional[AgentExecutor] = None
+        """Initialize the natural language orchestrator instance."""
+        self.context: Context = Context()
 
     @streamlit_status_container("Preparing AI Agent model", "AI Agent model preparation completed")
-    def prepare_agent(self) -> None:
+    def prepare_react_agent(self) -> None:
         """Prepare all resources and runnables before running AI Agent.
 
         The AI Agent directly processes the prompt from the user.
@@ -74,18 +67,18 @@ class Chain:
             dataset_file=self.context.dataset_file
         )
 
-        self.transformer = load_transformer()
-        self.llm = load_llm("openai/gpt-oss-120b")
-        self.tools = self.get_tools()
-        self.prompt_template = load_agent_prompt_template()
+        self.transformer: CrossEncoder = load_transformer()
+        self.llm: ChatGroq = load_llm("openai/gpt-oss-120b")
+        self.tools: List[StructuredTool] = self.get_tools()
+        self.prompt_template: ChatPromptTemplate = load_agent_prompt_template()
 
-        self.agent = load_agent(
+        self.agent: Runnable[Any, Any] = load_agent(
             llm=self.llm,
             _tools=self.tools,
             prompt_template=self.prompt_template
         )
 
-        self.agent_executor = AgentExecutor(
+        self.agent_executor: AgentExecutor = AgentExecutor(
             agent=self.agent,
             tools=self.tools,
             verbose=True,
@@ -101,7 +94,7 @@ class Chain:
         """
         execute_python = StructuredTool.from_function(
             func=self.execute_python,
-            args_schema=ExecutePythonArgs.model_json_schema(),
+            args_schema=ExecutePythonArgsSchema.model_json_schema(),
             description="Execute python code in a Jupyter notebook."
         )
 
@@ -137,8 +130,8 @@ class Chain:
             return execution
 
     @streamlit_status_container("Running AI Agent", "AI Agent run completed")
-    def run_agent(self, prompt: str) -> Optional[Dict[str, Any]]:
-        """Run AI Agent as configured within prepare_agent method.
+    def run_react_agent(self, prompt: str) -> Dict[str, Any]:
+        """Run AI Agent as configured within prepare_react_agent method.
 
         Args:
             prompt: The prompt input by the user through chat_input element.
@@ -152,20 +145,17 @@ class Chain:
         else:
             self.context.relevant_context = ""
 
-        if self.agent_executor:
-            response = self.agent_executor.invoke(
-                input={
-                    "input": prompt,
-                    "dataset_path": self.context.dataset_dir + self.context.dataset_file,
-                    "df_attrs": self.context.df_attrs,
-                    "tools": self.tools,
-                    "chat_history": self.context.relevant_context
-                }
-            )
+        response = self.agent_executor.invoke(
+            input={
+                "input": prompt,
+                "dataset_path": self.context.dataset_dir + self.context.dataset_file,
+                "df_attrs": self.context.df_attrs,
+                "tools": self.tools,
+                "chat_history": self.context.relevant_context
+            }
+        )
 
-            return response
-
-        return None
+        return response
 
     def load_relevant_context(self, prompt: str) -> str:
         """Load relevant contexts to be embedded into AI Agent system prompt.
@@ -249,7 +239,7 @@ class Chain:
         return stringfied_context
 
     @streamlit_status_container("Preparing context model", "Context model preparation completed")
-    def prepare_context(self) -> None:
+    def prepare_summary_generation_agent(self) -> None:
         """Prepare all resources and runnables before running context model.
 
         The context model inferences context from a pair of prompt and response.
@@ -258,8 +248,8 @@ class Chain:
         self.prompt_template = load_context_prompt_template()
 
     @streamlit_status_container("Getting response context", "Context response obtained")
-    def run_context(self, prompt: str, response: str) -> Optional[str]:
-        """Run context model as configured within prepare_context method.
+    def run_summary_generation_agent(self, prompt: str, response: str) -> str:
+        """Run summary model as configured within prepare_summary_generation_agent method.
 
         The chain is constructed using LCEL (Langchain Expression Language).
         See more on https://python.langchain.com/docs/concepts/lcel/.
@@ -272,18 +262,15 @@ class Chain:
             Optional string of context that's inferenced by context model.
 
         """
-        if self.llm and self.prompt_template:
-            chain = self.prompt_template | self.llm
+        chain = self.prompt_template | self.llm
 
-            reponse = chain.invoke(
-                input={
-                    "input": {
-                        "question": prompt,
-                        "answer": response
-                    }
+        reponse = chain.invoke(
+            input={
+                "input": {
+                    "question": prompt,
+                    "answer": response
                 }
-            )
+            }
+        )
 
-            return str(reponse.content)
-
-        return None
+        return str(reponse.content)

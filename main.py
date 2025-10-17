@@ -1,14 +1,13 @@
 """Entrypoint to the streamlit app."""
 
 # standard
+from typing import Dict, Literal
 from uuid import UUID
 
 # internal
-from cache.dev import generate_uuid, set_project
-from core import Session
-from model import Project
+from cache.dev import generate_uuid
+from core import UserApplication
 
-project_id: UUID = generate_uuid()["project_id"]
-project: Project = set_project(project_id)
-session: Session = Session(project)
-session.run()
+uuids: Dict[Literal["user_id", "project_id"], UUID] = generate_uuid()
+user_app: UserApplication = UserApplication()
+user_app.run(uuids)

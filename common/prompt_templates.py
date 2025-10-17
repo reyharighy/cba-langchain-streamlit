@@ -19,10 +19,12 @@ In order to work, you have access to the following tools:
 {chat_history}
 """
 
-CONTEXT_CHAIN_SYSTEM_PROMPT = """
-You're a helpful asssistant that can create a brief context from a pair question and answer.
-You have to provide the context as clear as it can be, but do not overly too long.
-You have to make the context in a language that the question and answer use.
+SUMMARY_CHAIN_SYSTEM_PROMPT = """
+You're a helpful asssistant that can create a brief contextual summary from a given 
+question-and-answer (QnA) turn. However, you craft the summary only from the answer.
+Do not replicate or derive anything that's being written in the question.
+You have to provide the summary as clear as it can be, but do not overly too long.
+You have to make the summary in a language being used in the QnA turn.
 Please respond in plain-text without any markdown format.
 
 {input}

@@ -1,6 +1,7 @@
 """Module to cache data and resource from core package."""
 
 # standard
+import os
 from importlib.abc import Loader
 from importlib.util import (
     module_from_spec,
@@ -11,6 +12,7 @@ from types import ModuleType
 from typing import (
     Dict,
     List,
+    Optional,
     Tuple,
 )
 
@@ -23,13 +25,31 @@ from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 from langchain_groq import ChatGroq
 from sentence_transformers import CrossEncoder
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 
 # internal
-from utils import (
+from common import (
     streamlit_cache,
     agent_chain_sys_prompt_template,
-    context_chain_sys_prompt_template,
+    summary_chain_sys_prompt_template,
 )
+
+@streamlit_cache("Connecting to database", "resource")
+def connect_database() -> Engine:
+    """Establish a connection to PostgreSQL database.
+
+    The connection pool is cached using the default Streamlit st.cache_resource decorator.
+    """
+    host = os.getenv("PGSQL_HOST", "host")
+    user = os.getenv("POSTGRES_USER", "admin")
+    pwd = os.getenv("POSTGRES_PASSWORD", "admin")
+    port = os.getenv("PGSQL_PORT", "5432")
+    db = os.getenv("POSTGRES_DB", "db")
+
+    db_url = f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{db}"
+
+    return create_engine(db_url)
 
 @streamlit_cache("Loading dataframe", "data")
 def load_dataframe(dataset_dir: str, dataset_file: str) -> pd.DataFrame:
@@ -53,7 +73,10 @@ def load_dataframe(dataset_dir: str, dataset_file: str) -> pd.DataFrame:
     )
 
 @streamlit_cache("Loading manifest", "resource")
-def load_manifest(manifest_dir: str, manifest_file: str) -> Tuple[Loader | None, ModuleType | None]:
+def load_manifest(
+    manifest_dir: str,
+    manifest_file: str
+) -> Tuple[Optional[Loader], Optional[ModuleType]]:
     """Load the module of the manifest file to be executed.
 
     The result is cached using the default Streamlit st.cache_resource decorator.
@@ -194,6 +217,6 @@ def load_context_prompt_template() -> ChatPromptTemplate:
 
     """
     return ChatPromptTemplate.from_messages([
-        ("system", context_chain_sys_prompt_template),
+        ("system", summary_chain_sys_prompt_template),
         ("human", "{input}"),
     ])
