@@ -1,19 +1,19 @@
 """A package to manage the behaviour of core functionalities within AI system.
 
 Modules:
-- **database_management**: Module to manage database management.
-- **natural_language_orchestrator**: Module to manage natural language orchestrator.
+- **context_manager**: Module for database to manage LLM context.
+- **natural_language_orchestration**: Module to manage natural language orchestrator.
 - **user_application**: module to manage user application.
 """
 
-from .database_management import DatabaseManagement
-from .natural_language_orchestrator import NaturalLanguageOrchestrator
-from .user_application import UserApplication
+from .context_management import ContextManager
+from .natural_language_orchestration import NaturalLanguageOrchestrator
+from .user_application import Application
 
 __all__ = [
-    "DatabaseManagement",
+    "ContextManager",
     "NaturalLanguageOrchestrator",
-    "UserApplication",
+    "Application",
 ]
 
 def __getattr__(name: str):

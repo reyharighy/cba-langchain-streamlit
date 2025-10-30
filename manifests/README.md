@@ -4,7 +4,7 @@ This directory stores the **runtime artifacts** generated during application exe
 
 ## Purpose
 
-- Implements the **prompt manifest** of each interaction turn using the Streamlit API reference.  
+- Implements the **manifest** of each interaction turn using the Streamlit API reference.  
 - Each file is created in the format:
 
   ```text
@@ -14,7 +14,7 @@ This directory stores the **runtime artifacts** generated during application exe
   ...
   ```
 
-- Files are automatically synced with the **prompt manifests record** in PostgreSQL.
+- Files are automatically synced with the **manifests record** in PostgreSQL.
 
 ## Usage Notes
 

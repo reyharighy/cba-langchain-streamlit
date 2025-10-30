@@ -9,11 +9,11 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prompt_manifests (
-    prompt_manifest_id UUID PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS manifests (
+    manifest_id UUID PRIMARY KEY,
     project_id UUID NOT NULL,
     user_id UUID NOT NULL,
-    prompt_manifest_no INT NOT NULL,
+    manifest_no INT NOT NULL,
     prompt TEXT NOT NULL,
     context TEXT NOT NULL,
     manifest_file TEXT NOT NULL,
@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS prompt_manifests (
     updated_at TIMESTAMP
 );
 
-CREATE INDEX idx_prompt_manifests_project_id_user_id
-ON prompt_manifests (project_id, user_id, created_at ASC);
+CREATE INDEX idx_manifests_project_id_user_id
+ON manifests (project_id, user_id, created_at ASC);
 
-CREATE INDEX idx_prompt_manifests_project_id_user_id_prompt_manifest_no
-ON prompt_manifests (project_id, user_id, prompt_manifest_no);
+CREATE INDEX idx_manifests_project_id_user_id_manifest_no
+ON manifests (project_id, user_id, manifest_no);

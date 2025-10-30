@@ -219,4 +219,4 @@ __marimo__/
 *.ipynb
 
 # Manifest file (Generated at Runtime)
-project-data/manifests/manifest_*.py
+manifests/manifest_*.py

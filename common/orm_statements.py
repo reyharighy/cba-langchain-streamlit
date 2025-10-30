@@ -24,11 +24,11 @@ VALUES (
 SHOW_PROJECT_STATEMENT = """SELECT * FROM projects
 WHERE project_id = :project_id"""
 
-STORE_PROMPT_MANIFEST_STATEMENT = """INSERT INTO prompt_manifests (
-    prompt_manifest_id,
+STORE_MANIFEST_STATEMENT = """INSERT INTO manifests (
+    manifest_id,
     project_id,
     user_id,
-    prompt_manifest_no,
+    manifest_no,
     prompt,
     context,
     manifest_file,
@@ -36,10 +36,10 @@ STORE_PROMPT_MANIFEST_STATEMENT = """INSERT INTO prompt_manifests (
     updated_at
 )
 VALUES (
-    :prompt_manifest_id,
+    :manifest_id,
     :project_id,
     :user_id,
-    :prompt_manifest_no,
+    :manifest_no,
     :prompt,
     :context,
     :manifest_file,
@@ -47,11 +47,11 @@ VALUES (
     :updated_at
 )"""
 
-INDEX_PROMPT_MANIFEST_STATEMENT = """SELECT * FROM prompt_manifests
+INDEX_MANIFEST_STATEMENT = """SELECT * FROM manifests
 WHERE project_id = :project_id
 AND user_id = :user_id"""
 
-SHOW_PROMPT_MANIFEST_STATEMENT = """SELECT * FROM prompt_manifests
+SHOW_MANIFEST_STATEMENT = """SELECT * FROM manifests
 WHERE project_id = :project_id
 AND user_id = :user_id
-AND prompt_manifest_no = :prompt_manifest_no"""
+AND manifest_no = :manifest_no"""

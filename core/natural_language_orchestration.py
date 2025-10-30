@@ -39,8 +39,8 @@ from common import streamlit_status_container
 from model import ExecutePythonArgsSchema
 
 @dataclass
-class Context:
-    """Provide context required by several process within Orchestrator class."""
+class OrchestratorRuntime:
+    """Provide runtime state required by several process within the orchestrator."""
 
     dataset_dir: str = ""
     dataset_file: str = ""
@@ -54,7 +54,7 @@ class NaturalLanguageOrchestrator:
 
     def __init__(self) -> None:
         """Initialize the natural language orchestrator instance."""
-        self.context: Context = Context()
+        self.rt: OrchestratorRuntime = OrchestratorRuntime()
 
     @streamlit_status_container("Preparing AI Agent model", "AI Agent model preparation completed")
     def prepare_react_agent(self) -> None:
@@ -62,9 +62,9 @@ class NaturalLanguageOrchestrator:
 
         The AI Agent directly processes the prompt from the user.
         """
-        self.context.df_attrs = load_df_info(
-            dataset_dir=self.context.dataset_dir,
-            dataset_file=self.context.dataset_file
+        self.rt.df_attrs = load_df_info(
+            dataset_dir=self.rt.dataset_dir,
+            dataset_file=self.rt.dataset_file
         )
 
         self.transformer: CrossEncoder = load_transformer()
@@ -114,7 +114,7 @@ class NaturalLanguageOrchestrator:
             Represents the result of a cell execution.
 
         """
-        dataset_path = self.context.dataset_dir + self.context.dataset_file
+        dataset_path = self.rt.dataset_dir + self.rt.dataset_file
 
         with Sandbox() as sandbox:
             with open(dataset_path, "rb") as dataset:
@@ -140,18 +140,18 @@ class NaturalLanguageOrchestrator:
             Optional dictionary data that's parsed by AI Agent with input and output.
 
         """
-        if self.context.total_manifest:
-            self.context.relevant_context = self.load_relevant_context(prompt)
+        if self.rt.total_manifest:
+            self.rt.relevant_context = self.load_relevant_context(prompt)
         else:
-            self.context.relevant_context = ""
+            self.rt.relevant_context = ""
 
         response = self.agent_executor.invoke(
             input={
                 "input": prompt,
-                "dataset_path": self.context.dataset_dir + self.context.dataset_file,
-                "df_attrs": self.context.df_attrs,
+                "dataset_path": self.rt.dataset_dir + self.rt.dataset_file,
+                "df_attrs": self.rt.df_attrs,
                 "tools": self.tools,
-                "chat_history": self.context.relevant_context
+                "chat_history": self.rt.relevant_context
             }
         )
 
@@ -177,7 +177,7 @@ class NaturalLanguageOrchestrator:
         header = "You have relevant contexts to answer the current question:"
         relevant_context = ""
 
-        for context in self.context.all_contexts:
+        for context in self.rt.all_contexts:
             processed_prompt = prompt
             context_pair = " ".join(context.values())
             context_pair_lang = detect(context_pair)
@@ -209,7 +209,7 @@ class NaturalLanguageOrchestrator:
         if len(relevant_context):
             return header + relevant_context
 
-        return header + self.stringify_context(1, self.context.all_contexts[-1])
+        return header + self.stringify_context(1, self.rt.all_contexts[-1])
 
     def stringify_context(
         self,
@@ -248,7 +248,7 @@ class NaturalLanguageOrchestrator:
         self.prompt_template = load_context_prompt_template()
 
     @streamlit_status_container("Getting response context", "Context response obtained")
-    def run_summary_generation_agent(self, prompt: str, response: str) -> str:
+    def run_summary_agent(self, prompt: str, response: str) -> str:
         """Run summary model as configured within prepare_summary_generation_agent method.
 
         The chain is constructed using LCEL (Langchain Expression Language).

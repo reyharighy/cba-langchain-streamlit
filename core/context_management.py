@@ -1,4 +1,4 @@
-"""A module to manage database management."""
+"""A module for database to manage LLM context."""
 
 # standard
 from typing import (
@@ -18,23 +18,23 @@ from cache import connect_database
 from common import (
     show_project_statement,
     store_project_statement,
-    show_prompt_manifest_statement,
-    index_prompt_manifest_statement,
-    store_prompt_manifest_statement,
+    show_manifest_statement,
+    index_manifest_statement,
+    store_manifest_statement,
 )
 from model import (
     Project,
     ProjectShow,
-    PromptManifest,
-    PromptManifestIndex,
-    PromptManifestShow
+    Manifest,
+    ManifestIndex,
+    ManifestShow
 )
 
-class DatabaseManagement:
-    """A class that implements the database management."""
+class ContextManager:
+    """A class that implements the database for context management."""
     
     def __init__(self) -> None:
-        """Initialize the database management instance."""
+        """Initialize the context manager instance."""
         self.connection: Engine = connect_database()
 
     def store_project(self, params: Project) -> None:
@@ -70,55 +70,55 @@ class DatabaseManagement:
 
             return mappings.pop() if mappings else None
 
-    def store_prompt_manifest(self, params: PromptManifest) -> None:
-        """Store the newly created prompt manifest model to database.
+    def store_manifest(self, params: Manifest) -> None:
+        """Store the newly created manifest model to database.
 
         Args:
-            params: PromptManifest base model.
+            params: Manifest base model.
 
         """
         with self.connection.begin() as connection:
             connection.execute(
-                statement=text(store_prompt_manifest_statement),
+                statement=text(store_manifest_statement),
                 parameters=params.model_dump()
             )
 
-    def index_prompt_manifest(self, params: PromptManifestIndex) -> List[PromptManifest]:
-        """Index all prompt manifests model from the given project_id and user_id.
+    def index_manifest(self, params: ManifestIndex) -> List[Manifest]:
+        """Index all manifests model from the given project_id and user_id.
 
         Args:
-            params: PromptManifestIndex base model.
+            params: ManifestIndex base model.
 
         Returns:
-            List of prompt manifest model that exists in database given the params args.
+            List of manifest model that exists in database given the params args.
 
         """
         with self.connection.begin() as connection:
             result: CursorResult = connection.execute(
-                statement=text(index_prompt_manifest_statement),
+                statement=text(index_manifest_statement),
                 parameters=params.model_dump()
             )
 
-            return [PromptManifest.model_validate(row) for row in result.mappings()]
+            return [Manifest.model_validate(row) for row in result.mappings()]
 
-    def show_prompt_manifest(self, params: PromptManifestShow) -> Optional[PromptManifest]:
-        """Show a prompt manifest model from the given project_id, user_id, and prompt_manifest_no.
+    def show_manifest(self, params: ManifestShow) -> Optional[Manifest]:
+        """Show a manifest model from the given project_id, user_id, and manifest_no.
 
         Args:
-            params: PromptManifestShow base model.
+            params: ManifestShow base model.
 
         Returns:
-            Optional prompt manifest model if sexist in database given the params args.
+            Optional manifest model if sexist in database given the params args.
 
         """
         with self.connection.begin() as connection:
             result: CursorResult = connection.execute(
-                statement=text(show_prompt_manifest_statement),
+                statement=text(show_manifest_statement),
                 parameters=params.model_dump()
             )
 
-            mappings: List[PromptManifest] = [
-                PromptManifest.model_validate(row)
+            mappings: List[Manifest] = [
+                Manifest.model_validate(row)
                 for row in result.mappings()
             ]
 

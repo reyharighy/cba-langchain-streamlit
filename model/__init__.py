@@ -2,7 +2,7 @@
 
 Modules:
 - **project**: Module to define the project model.
-- **prompt_manifest**: Module to define the prompt manifest model.
+- **manifest**: Module to define the manifest model.
 - **tool_args**: Module to define the tools arguments model.
 """
 
@@ -11,11 +11,11 @@ from .project import (
     ProjectShow,
     Project
 )
-from .prompt_manifest import (
-    PromptManifestCreate,
-    PromptManifestIndex,
-    PromptManifestShow,
-    PromptManifest
+from .manifest import (
+    ManifestCreate,
+    ManifestIndex,
+    ManifestShow,
+    Manifest
 )
 from .tool_args_specification import ExecutePythonArgsSchema
 
@@ -23,10 +23,10 @@ __all__ = [
     "ProjectCreate",
     "ProjectShow",
     "Project",
-    "PromptManifestCreate",
-    "PromptManifestIndex",
-    "PromptManifestShow",
-    "PromptManifest",
+    "ManifestCreate",
+    "ManifestIndex",
+    "ManifestShow",
+    "Manifest",
     "ExecutePythonArgsSchema"
 ]
 

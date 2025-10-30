@@ -10,9 +10,9 @@ from .custom_decorators import streamlit_status_container, streamlit_cache
 from .orm_statements import (
     STORE_PROJECT_STATEMENT,
     SHOW_PROJECT_STATEMENT,
-    STORE_PROMPT_MANIFEST_STATEMENT,
-    INDEX_PROMPT_MANIFEST_STATEMENT,
-    SHOW_PROMPT_MANIFEST_STATEMENT
+    STORE_MANIFEST_STATEMENT,
+    INDEX_MANIFEST_STATEMENT,
+    SHOW_MANIFEST_STATEMENT
 )
 from .prompt_templates import AGENT_SYSTEM_PROMPT, SUMMARY_CHAIN_SYSTEM_PROMPT
 
@@ -21,9 +21,9 @@ summary_chain_sys_prompt_template = SUMMARY_CHAIN_SYSTEM_PROMPT
 
 store_project_statement = STORE_PROJECT_STATEMENT
 show_project_statement = SHOW_PROJECT_STATEMENT
-store_prompt_manifest_statement = STORE_PROMPT_MANIFEST_STATEMENT
-index_prompt_manifest_statement = INDEX_PROMPT_MANIFEST_STATEMENT
-show_prompt_manifest_statement = SHOW_PROMPT_MANIFEST_STATEMENT
+store_manifest_statement = STORE_MANIFEST_STATEMENT
+index_manifest_statement = INDEX_MANIFEST_STATEMENT
+show_manifest_statement = SHOW_MANIFEST_STATEMENT
 
 __all__ = [
     "streamlit_status_container",
@@ -32,9 +32,9 @@ __all__ = [
     "summary_chain_sys_prompt_template",
     "store_project_statement",
     "show_project_statement",
-    "store_prompt_manifest_statement",
-    "index_prompt_manifest_statement",
-    "show_prompt_manifest_statement"
+    "store_manifest_statement",
+    "index_manifest_statement",
+    "show_manifest_statement"
 ]
 
 def __getattr__(name: str):

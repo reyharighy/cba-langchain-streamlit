@@ -49,7 +49,7 @@ An open-source developer toolset for prototyping and managing **AI-powered, data
 
 It combines a robust backend with an intuitive **Streamlit interface**, enabling seamless:
 
-- project and prompt management,
+- project and manifest management,
 - real-time data interaction,
 - and AI workflow orchestration.
 
@@ -57,9 +57,9 @@ It combines a robust backend with an intuitive **Streamlit interface**, enabling
 
 - 🧩 **Modular Architecture** – clear separation of database, core logic, and UI components.  
 - 🌐 **Interactive Web UI** – built with Streamlit for real-time user engagement.  
-- 🗃️ **Data Persistence** – ORM-based database schema for projects and prompt manifests.  
+- 🗃️ **Data Persistence** – ORM-based database schema for projects and manifests.  
 - 🤖 **AI Workflow Support** – built with Langchain for orchestration.  
-- 🔄 **Session & Prompt Management** – robust lifecycle handling for dynamic workflows.  
+- 🔄 **Session & Manifest Management** – robust lifecycle handling for dynamic workflows.  
 - 🐳 **Containerized Deployment** – Docker setup ensures reproducible environments.  
 
 ## On Progress
