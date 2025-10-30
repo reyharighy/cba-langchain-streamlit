@@ -223,3 +223,6 @@ manifests/manifest_*.py
 
 # NLTK Data
 nltk_data/
+
+.markdownlint.yml
+pyproject.toml
