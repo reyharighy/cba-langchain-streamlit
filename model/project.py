@@ -1,8 +1,8 @@
 """A module to define the project model."""
 
 # standard
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
 
 # third-party
 from pydantic import (

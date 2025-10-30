@@ -30,10 +30,10 @@ from translate import Translator
 from cache import (
     load_agent,
     load_agent_prompt_template,
-    load_context_prompt_template,
     load_df_info,
     load_llm,
-    load_transformer,
+    load_sentence_transformer,
+    load_summary_prompt_template,
 )
 from common import streamlit_status_container
 from model import ExecutePythonArgsSchema
@@ -56,18 +56,18 @@ class NaturalLanguageOrchestrator:
         """Initialize the natural language orchestrator instance."""
         self.rt: OrchestratorRuntime = OrchestratorRuntime()
 
-    @streamlit_status_container("Preparing AI Agent model", "AI Agent model preparation completed")
     def prepare_react_agent(self) -> None:
         """Prepare all resources and runnables before running AI Agent.
 
         The AI Agent directly processes the prompt from the user.
+
         """
         self.rt.df_attrs = load_df_info(
             dataset_dir=self.rt.dataset_dir,
             dataset_file=self.rt.dataset_file
         )
 
-        self.transformer: CrossEncoder = load_transformer()
+        self.sentence_transformer: CrossEncoder = load_sentence_transformer()
         self.llm: ChatGroq = load_llm("openai/gpt-oss-120b")
         self.tools: List[StructuredTool] = self.get_tools()
         self.prompt_template: ChatPromptTemplate = load_agent_prompt_template()
@@ -102,8 +102,9 @@ class NaturalLanguageOrchestrator:
             execute_python
         ]
 
+    @streamlit_status_container("Performing Data Analysis", "Analysis completed")
     def execute_python(self, code: str) -> Execution:
-        """Execute python code in a Jupyter notebook inside the sandbox environment.
+        """Execute python code inside the sandbox environment.
 
         This tool is only intended for the user's request that involves data analytics.
 
@@ -129,7 +130,7 @@ class NaturalLanguageOrchestrator:
 
             return execution
 
-    @streamlit_status_container("Running AI Agent", "AI Agent run completed")
+    @streamlit_status_container("Running AI Agent", "AI Agent run completed", expanded=True)
     def run_react_agent(self, prompt: str) -> Dict[str, Any]:
         """Run AI Agent as configured within prepare_react_agent method.
 
@@ -157,6 +158,7 @@ class NaturalLanguageOrchestrator:
 
         return response
 
+    @streamlit_status_container("Finding relevant contexts", "Contexts filtered")
     def load_relevant_context(self, prompt: str) -> str:
         """Load relevant contexts to be embedded into AI Agent system prompt.
 
@@ -197,8 +199,8 @@ class NaturalLanguageOrchestrator:
                 ]
             )
 
-            if self.transformer:
-                score = self.transformer.predict((processed_prompt, context_pair_lang))
+            if self.sentence_transformer:
+                score = self.sentence_transformer.predict((processed_prompt, context_pair_lang))
                 sigmoid_score = 1 / (1 + np.exp(-score))
 
                 if sigmoid_score > 0.9:
@@ -238,18 +240,18 @@ class NaturalLanguageOrchestrator:
 
         return stringfied_context
 
-    @streamlit_status_container("Preparing context model", "Context model preparation completed")
-    def prepare_summary_generation_agent(self) -> None:
-        """Prepare all resources and runnables before running context model.
+    def prepare_summary_agent(self) -> None:
+        """Prepare all resources and runnables before running summary model.
 
-        The context model inferences context from a pair of prompt and response.
+        The summary model inferences summary from a pair of prompt and response.
+
         """
         self.llm = load_llm("openai/gpt-oss-20b")
-        self.prompt_template = load_context_prompt_template()
+        self.prompt_template = load_summary_prompt_template()
 
-    @streamlit_status_container("Getting response context", "Context response obtained")
+    @streamlit_status_container("Getting summary", "Summary obtained")
     def run_summary_agent(self, prompt: str, response: str) -> str:
-        """Run summary model as configured within prepare_summary_generation_agent method.
+        """Run summary model as configured within prepare_summary_agent method.
 
         The chain is constructed using LCEL (Langchain Expression Language).
         See more on https://python.langchain.com/docs/concepts/lcel/.
@@ -259,7 +261,7 @@ class NaturalLanguageOrchestrator:
             response: The response from AI Agent based-on the prompt passed in.
 
         Returns:
-            Optional string of context that's inferenced by context model.
+            Optional string of summary that's inferenced by summary model.
 
         """
         chain = self.prompt_template | self.llm

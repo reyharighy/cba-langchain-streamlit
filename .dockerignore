@@ -1,10 +1,14 @@
 .ruff_cache
+manifests/README.md
 .dockerignore
 .env
 .gitignore
+.markdownlint.yml
 docker-compose.yml
 Dockerfile
+langchain-color.png
 playground.ipynb
 pyproject.toml
 README.md
 schema.sql
+Streamlit.png

@@ -26,13 +26,13 @@ from cache import (
 )
 from common import streamlit_status_container
 from model import (
-    Project,
-    ProjectCreate,
-    ProjectShow,
     Manifest,
     ManifestCreate,
     ManifestIndex,
-    ManifestShow
+    ManifestShow,
+    Project,
+    ProjectCreate,
+    ProjectShow,
 )
 
 @dataclass
@@ -132,6 +132,7 @@ class Application:
 
         All dataset information will passed to the chain context.
         This information is required for several process within the chain.
+
         """
         with st.expander("Click to toggle the table view", expanded=True):
             dataframe: pd.DataFrame = load_dataframe(
@@ -154,6 +155,7 @@ class Application:
         All fetched manifests will be added to chat history of chain context.
         It then run all manifest files to render all UI elements.
         Finally, save total manifest count inside context to infer the next manifest file number.
+
         """
         params: ManifestIndex = ManifestIndex(
             project_id=self.project.project_id,
@@ -198,6 +200,7 @@ class Application:
 
         All process defined within Chain class will be implemented here.
         Mockup mode is used to start the session process without running LLM function.
+
         """
         if self.mockup:
             self.rt.react_agent_response = {
@@ -208,12 +211,10 @@ class Application:
             self.rt.response_summary = "Example contextual summary from mockup mode."
         else:
             self.nlo.prepare_react_agent()
-            self.rt.react_agent_response = self.nlo.run_react_agent(
-                prompt=self.rt.prompt
-            )
+            self.rt.react_agent_response = self.nlo.run_react_agent(self.rt.prompt)
 
             if self.rt.react_agent_response:
-                self.nlo.prepare_summary_generation_agent()
+                self.nlo.prepare_summary_agent()
                 self.rt.response_summary = self.nlo.run_summary_agent(
                     prompt=self.rt.prompt,
                     response=self.rt.react_agent_response["output"]
@@ -228,6 +229,7 @@ class Application:
         Though, the execution is determined from react agent response and its summary.
         If both exist, the manifest is stored to database.
         Then, the new manifest file will be created.
+
         """
         if self.rt.react_agent_response and self.rt.response_summary:
             self.rt.total_manifest += 1
@@ -250,6 +252,7 @@ class Application:
 
         The new file will be stored inside the specified directory of the project metadata.
         The extension of file should be in .py.
+
         """
         manifest_file: str = f"manifest_{self.rt.total_manifest}.py"
         response_input: str = ""
@@ -284,6 +287,7 @@ class Application:
         """Fetch a newly created manifest model from database.
 
         The new model content will be rendered in a stream-like process to the app UI.
+
         """
         manifest_show_params: ManifestShow = ManifestShow(
             project_id=self.project.project_id,

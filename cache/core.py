@@ -40,6 +40,7 @@ def connect_database() -> Engine:
     """Establish a connection to PostgreSQL database.
 
     The connection pool is cached using the default Streamlit st.cache_resource decorator.
+
     """
     host = os.getenv("PGSQL_HOST", "host")
     user = os.getenv("POSTGRES_USER", "admin")
@@ -131,8 +132,8 @@ def load_df_info(dataset_dir: str, dataset_file: str) -> str:
 
     return output
 
-@streamlit_cache("Loading transformer model", "data")
-def load_transformer() -> CrossEncoder:
+@streamlit_cache("Loading sentence transformer model", "data")
+def load_sentence_transformer() -> CrossEncoder:
     """Load the sentence transformer model for filtering relevant chat history.
 
     This model reranks each chunk of historical contexts with the prompt.
@@ -206,9 +207,9 @@ def load_agent(
         prompt=prompt_template
     )
 
-@streamlit_cache("Loading context prompt template", "data")
-def load_context_prompt_template() -> ChatPromptTemplate:
-    """Load the prompt template instructions for context LLM to follow.
+@streamlit_cache("Loading summary prompt template", "data")
+def load_summary_prompt_template() -> ChatPromptTemplate:
+    """Load the prompt template instructions for summary model to follow.
 
     The result is cached using the default Streamlit st.cache_data decorator.
 

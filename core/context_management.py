@@ -9,25 +9,25 @@ from typing import (
 # third-party
 from sqlalchemy import (
     CursorResult,
+    Engine,
     text,
-    Engine
 )
 
 # internal
 from cache import connect_database
 from common import (
-    show_project_statement,
-    store_project_statement,
     show_manifest_statement,
     index_manifest_statement,
     store_manifest_statement,
+    show_project_statement,
+    store_project_statement,
 )
 from model import (
-    Project,
-    ProjectShow,
     Manifest,
     ManifestIndex,
-    ManifestShow
+    ManifestShow,
+    Project,
+    ProjectShow,
 )
 
 class ContextManager:
