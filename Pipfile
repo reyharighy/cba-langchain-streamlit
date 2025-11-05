@@ -26,6 +26,9 @@ langdetect = "*"
 translate = "*"
 nltk = "*"
 langsmith = "*"
+pypdf = "*"
+langchain-pinecone = "*"
+langchain-tavily = "*"
 
 [dev-packages]
 ipykernel = "*"
