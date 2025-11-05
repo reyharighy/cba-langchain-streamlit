@@ -21,8 +21,12 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 from langchain_groq import ChatGroq
+from langchain_tavily import TavilySearch
 from langdetect import detect
 from nltk.corpus import stopwords
+from pinecone import SearchQuery
+from pinecone.db_data import _Index
+from pinecone.db_data.models import SearchRecordsResponse
 from sentence_transformers import CrossEncoder
 from translate import Translator
 
@@ -30,13 +34,24 @@ from translate import Translator
 from cache import (
     load_agent,
     load_agent_prompt_template,
+    load_cross_encoder,
     load_df_info,
     load_llm,
-    load_sentence_transformer,
+    load_search_engine,
     load_summary_prompt_template,
+    load_vector_database,
 )
-from common import streamlit_status_container
-from model import ExecutePythonArgsSchema
+from common import (
+    execute_python_code_tool_description,
+    pinecone_search_tool_description,
+    streamlit_status_container,
+    tavily_search_tool_description,
+)
+from model import (
+    ExecutePythonCodeArgsSchema,
+    PineconeSearchArgsSchema,
+    TavilySearchArgsSchema,
+)
 
 @dataclass
 class OrchestratorRuntime:
@@ -67,9 +82,11 @@ class NaturalLanguageOrchestrator:
             dataset_file=self.rt.dataset_file
         )
 
-        self.sentence_transformer: CrossEncoder = load_sentence_transformer()
+        self.cross_encoder: CrossEncoder = load_cross_encoder()
+        self.vector_database: _Index = load_vector_database()
+        self.search_engine: TavilySearch = load_search_engine()
         self.llm: ChatGroq = load_llm("openai/gpt-oss-120b")
-        self.tools: List[StructuredTool] = self.get_tools()
+        self.tools: List[StructuredTool] = self.load_tools()
         self.prompt_template: ChatPromptTemplate = load_agent_prompt_template()
 
         self.agent: Runnable[Any, Any] = load_agent(
@@ -85,31 +102,62 @@ class NaturalLanguageOrchestrator:
             return_intermediate_steps=True
         )
 
-    def get_tools(self) -> List[StructuredTool]:
+    def load_tools(self) -> List[StructuredTool]:
         """Assign all tools for AI Agent to use.
 
         Returns:
             List of structured tools with defined schema args.
 
         """
-        execute_python = StructuredTool.from_function(
-            func=self.execute_python,
-            args_schema=ExecutePythonArgsSchema.model_json_schema(),
-            description="Execute python code in a Jupyter notebook."
+        execute_python_code = StructuredTool.from_function(
+            func=self.execute_python_code,
+            args_schema=ExecutePythonCodeArgsSchema.model_json_schema(),
+            description=execute_python_code_tool_description.replace('\n', '')
+        )
+
+        pinecone_search = StructuredTool.from_function(
+            func=self.pinecone_search,
+            args_schema=PineconeSearchArgsSchema.model_json_schema(),
+            description=pinecone_search_tool_description.replace('\n', '')
+        )
+
+        tavily_search = StructuredTool.from_function(
+            func=self.tavily_search,
+            args_schema=TavilySearchArgsSchema.model_json_schema(),
+            description=tavily_search_tool_description.replace('\n', '')
         )
 
         return [
-            execute_python
+            execute_python_code,
+            pinecone_search,
+            tavily_search,
         ]
+    
+    def stringify_tool_list(self) -> str:
+        """Get list of tools in string format that's intended to compose the agent system prompt.
+        
+        It may need to do so in order to help the AI Agent get better information about tools.
 
-    @streamlit_status_container("Performing Data Analysis", "Analysis completed")
-    def execute_python(self, code: str) -> Execution:
-        """Execute python code inside the sandbox environment.
+        Returns:
+            List of tools in a string format.
 
-        This tool is only intended for the user's request that involves data analytics.
+        """
+        tool_list: str = ""
+
+        for tool in self.tools:
+            tool_list += f"\n- {tool}"
+
+        return tool_list
+
+    @streamlit_status_container("Performing data analysis", "Analysis completed")
+    def execute_python_code(self, code: str) -> Execution:
+        """Perform Python code execution inside the sandbox environment.
+        
+        This tool is only intended for the user's request that involves data analytics process 
+        using Python libraries.
 
         Args:
-            code: Python code as a plain string. Do not wrap in JSON, Markdown, or objects.
+            code: Python code to run in a sandbox environment.
 
         Returns:
             Represents the result of a cell execution.
@@ -123,12 +171,59 @@ class NaturalLanguageOrchestrator:
 
             execution: Execution = sandbox.run_code(
                 code=code,
-                language="python",
-                on_stdout=lambda stdout: print("[Code Interpreter stdout]", stdout),
-                on_stderr=lambda stderr: print("[Code Interpreter stderr]", stderr)
+                language="python"
             )
 
             return execution
+
+    @streamlit_status_container("Retrieving private knowledge", "Knowledge retrieved")
+    def pinecone_search(self, query: str) -> SearchRecordsResponse:
+        """Perform private knowledge retrieval from vector database.
+
+        This tool is only intended for the user's request that requires various private knowledge 
+        retrieval of the user.
+
+        Args:
+            query: Query to use for searching information in a vector database.
+
+        Returns:
+            Represents a list of search record response from vector database.
+
+        """
+        search_query: SearchQuery = SearchQuery(
+            inputs={"text": query},
+            top_k=3
+        )
+
+        search_response: SearchRecordsResponse = self.vector_database.search(
+            namespace="internal-docs",
+            query=search_query
+        )
+
+        return search_response["result"]["hits"]
+
+    @streamlit_status_container("Searching on internet", "Search completed")
+    def tavily_search(self, query: str) -> List[Dict[str, str]]:
+        """Perform information retrieval on the internet using tavily search engine.
+
+        This tool is only intended for the user's requests that requires various information
+        that could be found on the internet.
+
+        Args:
+            query: Query to use for searching informasion on the internet.
+
+        Returns:
+            Represents a list of search results based-on the query given.
+
+        """
+        results = self.search_engine.invoke({"query": query})["results"]
+
+        return [
+            {
+                "title": result["title"],
+                "content": result["content"]
+            } for result in results
+        ]
 
     @streamlit_status_container("Running AI Agent", "AI Agent run completed", expanded=True)
     def run_react_agent(self, prompt: str) -> Dict[str, Any]:
@@ -151,7 +246,7 @@ class NaturalLanguageOrchestrator:
                 "input": prompt,
                 "dataset_path": self.rt.dataset_dir + self.rt.dataset_file,
                 "df_attrs": self.rt.df_attrs,
-                "tools": self.tools,
+                "tools": self.stringify_tool_list(),
                 "chat_history": self.rt.relevant_context
             }
         )
@@ -199,14 +294,13 @@ class NaturalLanguageOrchestrator:
                 ]
             )
 
-            if self.sentence_transformer:
-                score = self.sentence_transformer.predict((processed_prompt, context_pair_lang))
-                sigmoid_score = 1 / (1 + np.exp(-score))
+            score = self.cross_encoder.predict((processed_prompt, context_pair_lang))
+            sigmoid_score = 1 / (1 + np.exp(-score))
 
-                if sigmoid_score > 0.9:
-                    index += 1
+            if sigmoid_score > 0.9:
+                index += 1
 
-                    self.stringify_context(index, context)
+                relevant_context += self.stringify_context(index, context)
 
         if len(relevant_context):
             return header + relevant_context
@@ -234,9 +328,9 @@ class NaturalLanguageOrchestrator:
 
         for key_type, text in context.items():
             if key_type == "prompt":
-                stringfied_context += '\n' + f"Questin No. {index}: {text}"
+                stringfied_context += f"\nQuestin No. {index}: {text}"
             else:
-                stringfied_context += '\n' + f"Response Context No. {index}: {text}"
+                stringfied_context += f"\nResponse Context No. {index}: {text}"
 
         return stringfied_context
 
