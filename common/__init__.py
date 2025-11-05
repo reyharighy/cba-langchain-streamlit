@@ -14,10 +14,19 @@ from .orm_statements import (
     INDEX_MANIFEST_STATEMENT,
     SHOW_MANIFEST_STATEMENT
 )
-from .prompt_templates import AGENT_SYSTEM_PROMPT, SUMMARY_CHAIN_SYSTEM_PROMPT
+from .prompt_templates import (
+    REACT_SYSTEM_PROMPT, 
+    SUMMARY_SYSTEM_PROMPT,
+    EXECUTE_PYTHON_CODE_TOOL_DESCRIPTION,
+    PINECONE_SEARCH_TOOL_DESCRIPTION,
+    TAVILY_SEARCH_TOOL_DESCRIPTION,
+)
 
-agent_chain_sys_prompt_template = AGENT_SYSTEM_PROMPT
-summary_chain_sys_prompt_template = SUMMARY_CHAIN_SYSTEM_PROMPT
+react_sys_prompt_template = REACT_SYSTEM_PROMPT
+summary_sys_prompt_template = SUMMARY_SYSTEM_PROMPT
+execute_python_code_tool_description = EXECUTE_PYTHON_CODE_TOOL_DESCRIPTION
+pinecone_search_tool_description = PINECONE_SEARCH_TOOL_DESCRIPTION
+tavily_search_tool_description = TAVILY_SEARCH_TOOL_DESCRIPTION
 
 store_project_statement = STORE_PROJECT_STATEMENT
 show_project_statement = SHOW_PROJECT_STATEMENT
@@ -28,8 +37,11 @@ show_manifest_statement = SHOW_MANIFEST_STATEMENT
 __all__ = [
     "streamlit_status_container",
     "streamlit_cache",
-    "agent_chain_sys_prompt_template",
-    "summary_chain_sys_prompt_template",
+    "react_sys_prompt_template",
+    "summary_sys_prompt_template",
+    "execute_python_code_tool_description",
+    "pinecone_search_tool_description",
+    "tavily_search_tool_description",
     "store_project_statement",
     "show_project_statement",
     "store_manifest_statement",
