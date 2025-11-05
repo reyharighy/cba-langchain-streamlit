@@ -9,15 +9,19 @@ Modules:
 from .project import (
     ProjectCreate,
     ProjectShow,
-    Project
+    Project,
 )
 from .manifest import (
     ManifestCreate,
     ManifestIndex,
     ManifestShow,
-    Manifest
+    Manifest,
 )
-from .tool_args_specification import ExecutePythonArgsSchema
+from .tool_args_specification import (
+    ExecutePythonCodeArgsSchema,
+    PineconeSearchArgsSchema,
+    TavilySearchArgsSchema,
+)
 
 __all__ = [
     "ProjectCreate",
@@ -27,7 +31,9 @@ __all__ = [
     "ManifestIndex",
     "ManifestShow",
     "Manifest",
-    "ExecutePythonArgsSchema"
+    "ExecutePythonCodeArgsSchema",
+    "PineconeSearchArgsSchema",
+    "TavilySearchArgsSchema",
 ]
 
 def __getattr__(name: str):
