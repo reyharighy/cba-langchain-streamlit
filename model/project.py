@@ -24,7 +24,7 @@ class ProjectCreate(BaseModel):
             project_id=self.project_id,
             user_id=self.user_id,
             title=self.title,
-            dataset_dir="outbound/datasets/",
+            dataset_dir="inbound/datasets/",
             dataset_file=self.datasets,
             manifest_dir="manifests/"
         )
