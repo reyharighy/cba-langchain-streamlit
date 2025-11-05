@@ -24,6 +24,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
 from langchain_groq import ChatGroq
+from langchain_tavily import TavilySearch
+from pinecone import Pinecone, ServerlessSpec
+from pinecone.db_data import _Index
 from sentence_transformers import CrossEncoder
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -31,8 +34,8 @@ from sqlalchemy.engine import Engine
 # internal
 from common import (
     streamlit_cache,
-    agent_chain_sys_prompt_template,
-    summary_chain_sys_prompt_template,
+    react_sys_prompt_template,
+    summary_sys_prompt_template,
 )
 
 @streamlit_cache("Connecting to database", "resource")
@@ -128,13 +131,13 @@ def load_df_info(dataset_dir: str, dataset_file: str) -> str:
         col_value_dict[column] = df[column].unique()[:5]
 
     for col_name, values in col_value_dict.items():
-        output += f"\t- {col_name}: {list(values)}\n"
+        output += f"\n\t- {col_name}: {list(values)}"
 
     return output
 
-@streamlit_cache("Loading sentence transformer model", "data")
-def load_sentence_transformer() -> CrossEncoder:
-    """Load the sentence transformer model for filtering relevant chat history.
+@streamlit_cache("Loading cross encoder model", "data")
+def load_cross_encoder() -> CrossEncoder:
+    """Load the cross encoder model for filtering relevant chat history.
 
     This model reranks each chunk of historical contexts with the prompt.
     The result is cached using the default Streamlit st.cache_data decorator.
@@ -177,7 +180,7 @@ def load_agent_prompt_template() -> ChatPromptTemplate:
 
     """
     return ChatPromptTemplate.from_messages([
-        ("system", agent_chain_sys_prompt_template),
+        ("system", react_sys_prompt_template),
         ("human", "{input}"),
         ("placeholder", "{agent_scratchpad}")
     ])
@@ -218,6 +221,53 @@ def load_summary_prompt_template() -> ChatPromptTemplate:
 
     """
     return ChatPromptTemplate.from_messages([
-        ("system", summary_chain_sys_prompt_template),
+        ("system", summary_sys_prompt_template),
         ("human", "{input}"),
     ])
+
+@streamlit_cache("Loading vector database", "resource")
+def load_vector_database() -> _Index:
+    """Load vector database as index for filtering relevant private knowledge base.
+
+    The index is cached using the default Streamlit st.cache_resource decorator.
+    The index uses a self-hosted embeddings model of llama-text-embed-v2
+
+    Returns:
+        Vector database as index with Pinecone integration.
+
+    """
+    pinecone: Pinecone = Pinecone(os.getenv("PINECONE_API_KEY", ""))
+    index_name: str = os.getenv("PINECONE_INDEX_NAME", "")
+
+    if not pinecone.has_index(index_name):
+        serverless_spec: ServerlessSpec = ServerlessSpec(
+            cloud="aws",
+            region="us-east-1"
+        )
+
+        pinecone.create_index(
+            name=index_name,
+            dimension=1024,
+            metric="cosine",
+            spec=serverless_spec
+        )
+
+    return pinecone.Index(index_name)
+
+@streamlit_cache("Loading search engine", "resource")
+def load_search_engine() -> TavilySearch:
+    """Load search engine that's used to search for information on the internet.
+    
+    The index is cached using the default Streamlit st.cache_resource decorator.
+    The vendor used for this purpose is Tavily.
+
+    Returns:
+        TavilySearch with specific configuration.
+    
+    """
+    return TavilySearch(
+        max_results=5,
+        topic="general",
+        include_answers=True,
+        include_raw_content=True
+    )

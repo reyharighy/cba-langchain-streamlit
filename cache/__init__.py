@@ -12,12 +12,14 @@ from .core import (
     connect_database,
     load_agent,
     load_agent_prompt_template,
+    load_cross_encoder,
     load_dataframe,
     load_df_info,
     load_llm,
     load_manifest,
-    load_sentence_transformer,
+    load_search_engine,
     load_summary_prompt_template,
+    load_vector_database,
 )
 from .cold import cold_start
 
@@ -26,12 +28,14 @@ __all__ = [
     "connect_database",
     "load_agent",
     "load_agent_prompt_template",
+    "load_cross_encoder",
     "load_dataframe",
     "load_df_info",
     "load_llm",
     "load_manifest",
-    "load_sentence_transformer",
+    "load_search_engine",
     "load_summary_prompt_template",
+    "load_vector_database",
 ]
 
 def __getattr__(name: str):

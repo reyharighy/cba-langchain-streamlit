@@ -8,7 +8,14 @@ import nltk
 from dotenv import load_dotenv
 
 #internal
-from .core import load_sentence_transformer
+from .core import (
+    connect_database,
+    load_agent_prompt_template,
+    load_cross_encoder,
+    load_search_engine,
+    load_summary_prompt_template,
+    load_vector_database,
+)
 from common import streamlit_cache
 
 @streamlit_cache("Downloading corpora for stopwords", "data")
@@ -21,14 +28,16 @@ def download_stopwords() -> None:
 def cold_start() -> None:
     """Execute cold start setup before running application, including environment variables.
     
-    The process would take to execute:
-    1. download_stopwords()
-    2. load_sentence_transformer()
-
-    The above processes take time too long at the first execution of user's request.
-    Therefore, they take precedence in order to perceive good user experience.
+    The process would take to execute various functionalities within the system that does not
+    require any runtime state. It's preferable to take precedence to load in order to perceive good 
+    user experience.
 
     """
     load_dotenv()
     download_stopwords()
-    load_sentence_transformer()
+    connect_database()
+    load_agent_prompt_template()
+    load_cross_encoder()
+    load_search_engine()
+    load_summary_prompt_template()
+    load_vector_database()
