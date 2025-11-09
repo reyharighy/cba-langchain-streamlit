@@ -29,6 +29,8 @@ langsmith = "*"
 pypdf = "*"
 langchain-pinecone = "*"
 langchain-tavily = "*"
+markdown = "*"
+beautifulsoup4 = "*"
 
 [dev-packages]
 ipykernel = "*"
