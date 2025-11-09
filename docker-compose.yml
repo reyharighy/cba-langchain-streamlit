@@ -2,12 +2,14 @@ services:
   streamlit:
     build:
       context: .
+      args:
+        WORKDIR_PATH: ${WORKDIR_PATH}
     env_file:
       - .env
     ports:
       - "8501:8501"
     volumes:
-      - './:/var/www/cba-langchain-streamlit'
+      - './:${WORKDIR_PATH}'
     networks:
       - streamlit-net
     depends_on:

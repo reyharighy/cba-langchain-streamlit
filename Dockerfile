@@ -2,7 +2,9 @@ FROM python:3.12
 
 RUN pip install --no-cache-dir pipenv --root-user-action=ignore
 
-WORKDIR /var/www/cba-langchain-streamlit
+ARG WORKDIR_PATH
+
+WORKDIR ${WORKDIR_PATH}
 
 RUN useradd -m -u 1000 streamlituser
 
@@ -12,7 +14,7 @@ RUN pipenv install --system --deploy --ignore-pipfile
 
 COPY . .
 
-RUN chown -R streamlituser:streamlituser /var/www/cba-langchain-streamlit
+RUN chown -R streamlituser:streamlituser ${WORKDIR_PATH}
 
 USER streamlituser
 
