@@ -1,6 +1,7 @@
 """A module to manage natural language orchestrator."""
 
 # standard
+import re
 from dataclasses import (
     dataclass,
     field,
@@ -13,10 +14,13 @@ from typing import (
 )
 
 # third-party
+import markdown
 import numpy as np
+from bs4 import BeautifulSoup
 from e2b_code_interpreter import Execution
 from e2b_code_interpreter.code_interpreter_sync import Sandbox
 from langchain.agents.agent import AgentExecutor
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import Runnable
 from langchain_core.tools import StructuredTool
@@ -28,17 +32,17 @@ from pinecone import SearchQuery
 from pinecone.db_data import _Index
 from pinecone.db_data.models import SearchRecordsResponse
 from sentence_transformers import CrossEncoder
-from translate import Translator
 
 # internal
 from cache import (
     load_agent,
-    load_agent_prompt_template,
     load_cross_encoder,
     load_df_info,
     load_llm,
+    load_react_prompt_template,
     load_search_engine,
     load_summary_prompt_template,
+    load_translator,
     load_vector_database,
 )
 from common import (
@@ -59,10 +63,7 @@ class OrchestratorRuntime:
 
     dataset_dir: str = ""
     dataset_file: str = ""
-    df_attrs: str = ""
-    total_manifest: int = 0
-    all_contexts: List[Dict[Literal["prompt", "context"], str]] = field(default_factory=list)
-    relevant_context: str = ""
+    manifest_turns: List[Dict[Literal["query", "response", "summary"], str]] = field(default_factory=list) # noqa: E501
 
 class NaturalLanguageOrchestrator:
     """A class that implements the natural language orchestrator."""
@@ -72,34 +73,25 @@ class NaturalLanguageOrchestrator:
         self.rt: OrchestratorRuntime = OrchestratorRuntime()
 
     def prepare_react_agent(self) -> None:
-        """Prepare all resources and runnables before running AI Agent.
-
-        The AI Agent directly processes the prompt from the user.
-
-        """
-        self.rt.df_attrs = load_df_info(
-            dataset_dir=self.rt.dataset_dir,
-            dataset_file=self.rt.dataset_file
-        )
-
-        self.cross_encoder: CrossEncoder = load_cross_encoder()
+        """Prepare all resources and runnables before running react agent."""
+        self.llm: ChatGroq = load_llm("openai/gpt-oss-120b")
+        self.prompt_template: ChatPromptTemplate = load_react_prompt_template()
         self.vector_database: _Index = load_vector_database()
         self.search_engine: TavilySearch = load_search_engine()
-        self.llm: ChatGroq = load_llm("openai/gpt-oss-120b")
-        self.tools: List[StructuredTool] = self.load_tools()
-        self.prompt_template: ChatPromptTemplate = load_agent_prompt_template()
+        self.cross_encoder: CrossEncoder = load_cross_encoder()
 
-        self.agent: Runnable[Any, Any] = load_agent(
+        tools: List[StructuredTool] = self.load_tools()
+        agent: Runnable[Any, Any] = load_agent(
             llm=self.llm,
-            _tools=self.tools,
+            _tools=tools,
             prompt_template=self.prompt_template
         )
 
         self.agent_executor: AgentExecutor = AgentExecutor(
-            agent=self.agent,
-            tools=self.tools,
+            agent=agent,
+            tools=tools,
             verbose=True,
-            return_intermediate_steps=True
+            return_intermediate_steps=False
         )
 
     def load_tools(self) -> List[StructuredTool]:
@@ -132,22 +124,6 @@ class NaturalLanguageOrchestrator:
             pinecone_search,
             tavily_search,
         ]
-    
-    def stringify_tool_list(self) -> str:
-        """Get list of tools in string format that's intended to compose the agent system prompt.
-        
-        It may need to do so in order to help the AI Agent get better information about tools.
-
-        Returns:
-            List of tools in a string format.
-
-        """
-        tool_list: str = ""
-
-        for tool in self.tools:
-            tool_list += f"\n- {tool}"
-
-        return tool_list
 
     @streamlit_status_container("Performing data analysis", "Analysis completed")
     def execute_python_code(self, code: str) -> Execution:
@@ -226,133 +202,178 @@ class NaturalLanguageOrchestrator:
         ]
 
     @streamlit_status_container("Running AI Agent", "AI Agent run completed", expanded=True)
-    def run_react_agent(self, prompt: str) -> Dict[str, Any]:
-        """Run AI Agent as configured within prepare_react_agent method.
+    def run_react_agent(self, query: str) -> str:
+        """Run react agent as configured within prepare_react_agent method.
+
+        At first, it will try to load the dataframe attributes for certain dataset path. It will 
+        then filter relevant turns based-on the current user's query. Finally, all information will 
+        be embedded into system prompt as a guidance for LLM to follow.
 
         Args:
-            prompt: The prompt input by the user through chat_input element.
+            query: The query input by the user through chat_input element.
 
         Returns:
-            Optional dictionary data that's parsed by AI Agent with input and output.
+            Optional dictionary data that's parsed by LLM with input and output.
 
         """
-        if self.rt.total_manifest:
-            self.rt.relevant_context = self.load_relevant_context(prompt)
-        else:
-            self.rt.relevant_context = ""
+        df_attributes: str = load_df_info(
+            dataset_dir=self.rt.dataset_dir,
+            dataset_file=self.rt.dataset_file
+        )
 
-        response = self.agent_executor.invoke(
+        relevant_turns: List[HumanMessage | AIMessage] = []
+
+        if self.rt.manifest_turns:
+            relevant_turns = self.load_relevant_turns(query)
+
+        raw_output = self.agent_executor.invoke(
             input={
-                "input": prompt,
+                "query": query,
+                "chat_history": relevant_turns,
                 "dataset_path": self.rt.dataset_dir + self.rt.dataset_file,
-                "df_attrs": self.rt.df_attrs,
-                "tools": self.stringify_tool_list(),
-                "chat_history": self.rt.relevant_context
+                "df_attributes": df_attributes,
             }
         )
 
-        return response
+        return raw_output["output"]
 
     @streamlit_status_container("Finding relevant contexts", "Contexts filtered")
-    def load_relevant_context(self, prompt: str) -> str:
-        """Load relevant contexts to be embedded into AI Agent system prompt.
+    def load_relevant_turns(self, query: str) -> List[HumanMessage | AIMessage]:
+        """Load relevant turns to be embedded into system prompt.
 
-        The similarity score will be standardized using logistic sigmoid.
-        Recalculated score will be between 0 and 1.
+        This process is part of window-context management. The relevant turns is semantically 
+        measured with similarity score. It will be standardized using logistic sigmoid. 
+        Recalculated score will be between 0 and 1. If no turns are found to be relevant, the last 
+        turn will be passed if it does exist.
+
         IMPORTANT: This method is experimental purpose.
 
         Args:
-            prompt: Prompt for the user to calculate context similarity score.
+            query: The current query of the user to calculate context similarity score.
 
         Returns:
-            A collection of contexts with similarity score above 0.9.
-            If no contexts are passing the threshold score, return the last context.
+            A collection of relevant turns with similarity score above 0.75.
+            If none are passing the threshold score, return the last context.
 
         """
-        index = 0
-        original_prompt_lang = detect(prompt)
-        header = "You have relevant contexts to answer the current question:"
-        relevant_context = ""
+        if len(self.rt.manifest_turns) == 1:
+            return self.compose_turn_message(self.rt.manifest_turns[0])
 
-        for context in self.rt.all_contexts:
-            processed_prompt = prompt
-            context_pair = " ".join(context.values())
-            context_pair_lang = detect(context_pair)
+        query_lang = detect(query)
+        relevant_turns: List[HumanMessage | AIMessage] = []
 
-            if original_prompt_lang != context_pair_lang:
-                translator = Translator(
-                    from_lang=original_prompt_lang,
-                    to_lang=context_pair_lang
+        for manifest_turn in self.rt.manifest_turns:
+            turn_pair = " ".join(manifest_turn.values())
+            turn_pair = self.markdown_to_plain_text(turn_pair)
+            turn_pair_lang = detect(turn_pair)
+
+            if query_lang != turn_pair_lang:
+                translator = load_translator(
+                    query_lang=query_lang,
+                    turn_pair_lang=turn_pair_lang
                 )
 
-                processed_prompt = translator.translate(processed_prompt)
+                query = translator.translate(query)
 
-            processed_prompt = " ".join(
-                [
-                    word for word in processed_prompt.replace("?", "").split(" ")
-                    if word not in stopwords.words()
-                ]
-            )
+            query = self.remove_stopwords(query)
+            turn_pair = self.remove_stopwords(turn_pair)
 
-            score = self.cross_encoder.predict((processed_prompt, context_pair_lang))
+            score = self.cross_encoder.predict((query, turn_pair))
             sigmoid_score = 1 / (1 + np.exp(-score))
 
-            if sigmoid_score > 0.9:
-                index += 1
+            if sigmoid_score > 0.75:
+                relevant_turns += self.compose_turn_message(manifest_turn)
 
-                relevant_context += self.stringify_context(index, context)
+        if len(relevant_turns):
+            return relevant_turns
 
-        if len(relevant_context):
-            return header + relevant_context
+        return self.compose_turn_message(self.rt.manifest_turns[-1])
 
-        return header + self.stringify_context(1, self.rt.all_contexts[-1])
-
-    def stringify_context(
-        self,
-        index: int,
-        context: Dict[Literal["prompt", "context"], str]
-    ) -> str:
-        """Convert to string a pair of prompt and context.
-
-        Stringified contexts are collected as relevant context when running AI Agent.
+    def markdown_to_plain_text(self, md: str) -> str:
+        """Convert Markdown (with or without HTML) into plain text.
 
         Args:
-            index: Number of context pair.
-            context: Context to format as string.
+            md: string.
 
         Returns:
-            String formatted context.
+            A string.
 
         """
-        stringfied_context = ""
+        html = markdown.markdown(md)
+        soup = BeautifulSoup(html, "html.parser")
 
-        for key_type, text in context.items():
-            if key_type == "prompt":
-                stringfied_context += f"\nQuestin No. {index}: {text}"
-            else:
-                stringfied_context += f"\nResponse Context No. {index}: {text}"
+        text = soup.get_text(separator=" ")
+        text = re.sub(r"[^A-Za-z0-9()?.,:]+", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
 
-        return stringfied_context
+        return text
+
+    def remove_stopwords(self, query: str) -> str:
+        """Remove the stopwords before measuring the similarity score.
+
+        The goal of this method is to remove the words that are not semantically contributed when 
+        measuring the similarity score.
+
+        Args:
+            query: The user's query that's going to be preprocessed for removing the stopwords.
+
+        Returns:
+            The processed query with stopwords being removed.
+
+        """
+        return " ".join(
+            [
+                word for word in query.replace("?", "").split(" ")
+                if word not in stopwords.words()
+            ]
+        )
+
+    def compose_turn_message(self, turn: Dict[Literal["query", "response", "summary"], str]
+    ) -> List[HumanMessage | AIMessage]:
+        """Format the relevant turns into a collection of BaseMessage classes.
+
+        AIMessage is composed with the summary of the LLM response, not the response itself. 
+        BaseMessage is built-in class provided by LangChain that's used to embed the memory of chat 
+        history in the system prompt.
+
+        Args:
+            turn: Turn to format as a list of BaseMessage between user and AI Agent.
+
+        Returns:
+            A collection of BaseMessage that are constructed with HumanMessage and AIMessage.
+
+        """
+        messages: List[HumanMessage | AIMessage] = []
+
+        for key_type, text in turn.items():
+            if key_type == "query":
+                messages.append(HumanMessage(text))
+            elif key_type == "summary":
+                messages.append(AIMessage(text))
+
+        return messages
 
     def prepare_summary_agent(self) -> None:
-        """Prepare all resources and runnables before running summary model.
+        """Prepare all resources and runnables before running summary agent.
 
-        The summary model inferences summary from a pair of prompt and response.
-
+        The summary agent inferences summary from a turn resulting from the react agent process.
         """
         self.llm = load_llm("openai/gpt-oss-20b")
         self.prompt_template = load_summary_prompt_template()
 
     @streamlit_status_container("Getting summary", "Summary obtained")
-    def run_summary_agent(self, prompt: str, response: str) -> str:
-        """Run summary model as configured within prepare_summary_agent method.
+    def run_summary_agent(self, query: str, response: str) -> str:
+        """Run summary agent as configured within prepare_summary_agent method.
+
+        It's preferable to embed the summary of the run_react_agent into system prompt for token 
+        efficiency.
 
         The chain is constructed using LCEL (Langchain Expression Language).
         See more on https://python.langchain.com/docs/concepts/lcel/.
 
         Args:
-            prompt: The prompt input by the user through chat_input element.
-            response: The response from AI Agent based-on the prompt passed in.
+            query: The query input by the user through chat_input element.
+            response: The LLM response obtained from executing run_react_agent.
 
         Returns:
             Optional string of summary that's inferenced by summary model.
@@ -360,13 +381,13 @@ class NaturalLanguageOrchestrator:
         """
         chain = self.prompt_template | self.llm
 
-        reponse = chain.invoke(
+        raw_output = chain.invoke(
             input={
                 "input": {
-                    "question": prompt,
+                    "question": query,
                     "answer": response
                 }
             }
         )
 
-        return str(reponse.content)
+        return str(raw_output.content)
