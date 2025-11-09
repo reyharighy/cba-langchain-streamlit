@@ -1,4 +1,4 @@
-"""Entrypoint to the streamlit app."""
+"""Entrypoint to the Streamlit application."""
 
 # standard
 from typing import Dict, Literal

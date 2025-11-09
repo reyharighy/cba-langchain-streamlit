@@ -18,8 +18,9 @@ class ManifestCreate(BaseModel):
 
     project_id: UUID
     user_id: UUID
-    manifest_no: int
-    prompt: str
+    num: int
+    query: str
+    response: str
     context: str
 
     def __call__(self) -> 'Manifest':
@@ -27,10 +28,11 @@ class ManifestCreate(BaseModel):
         return Manifest(
             project_id=self.project_id,
             user_id=self.user_id,
-            manifest_no=self.manifest_no,
-            prompt=self.prompt,
+            num=self.num,
+            query=self.query,
+            response=self.response,
             context=self.context,
-            manifest_file=f"manifest_{self.manifest_no}.py"
+            file_name=f"manifest_{self.num}.py"
         )
 
 class ManifestIndex(BaseModel):
@@ -44,17 +46,18 @@ class ManifestShow(BaseModel):
 
     project_id: UUID
     user_id: UUID
-    manifest_no: int
+    num: int
 
 class Manifest(BaseModel):
     """Define the attributes of a manifest model."""
 
-    manifest_id: UUID = Field(default_factory=uuid4)
+    id: UUID = Field(default_factory=uuid4)
     project_id: UUID
     user_id: UUID
-    manifest_no: int = Field(ge=1)
-    prompt: str = Field(min_length=0)
+    num: int = Field(ge=1)
+    query: str = Field(min_length=0)
+    response: str = Field(min_length=0)
     context: str = Field(min_length=0)
-    manifest_file: str
+    file_name: str
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
