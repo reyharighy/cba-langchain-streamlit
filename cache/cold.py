@@ -1,4 +1,4 @@
-"""Module to set up all dependencies data to cold start the application."""
+"""Module to set up all data and resources to cold start the application."""
 
 #standard
 import os
@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 #internal
 from .core import (
     connect_database,
-    load_agent_prompt_template,
     load_cross_encoder,
+    load_react_prompt_template,
     load_search_engine,
     load_summary_prompt_template,
     load_vector_database,
@@ -34,10 +34,10 @@ def cold_start() -> None:
 
     """
     load_dotenv()
-    download_stopwords()
     connect_database()
-    load_agent_prompt_template()
+    download_stopwords()
     load_cross_encoder()
+    load_react_prompt_template()
     load_search_engine()
     load_summary_prompt_template()
     load_vector_database()

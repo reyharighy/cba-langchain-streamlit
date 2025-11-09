@@ -1,4 +1,4 @@
-"""Module to cache data and resource from core package."""
+"""Module to cache data and resource that will be used directly inside core package."""
 
 # standard
 import os
@@ -30,6 +30,7 @@ from pinecone.db_data import _Index
 from sentence_transformers import CrossEncoder
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+from translate import Translator
 
 # internal
 from common import (
@@ -139,7 +140,7 @@ def load_df_info(dataset_dir: str, dataset_file: str) -> str:
 def load_cross_encoder() -> CrossEncoder:
     """Load the cross encoder model for filtering relevant chat history.
 
-    This model reranks each chunk of historical contexts with the prompt.
+    This model reranks each chunk of historical contexts with the current query.
     The result is cached using the default Streamlit st.cache_data decorator.
 
     Returns:
@@ -170,7 +171,7 @@ def load_llm(model: str) -> ChatGroq:
     )
 
 @streamlit_cache("Loading AI Agent prompt template", "data")
-def load_agent_prompt_template() -> ChatPromptTemplate:
+def load_react_prompt_template() -> ChatPromptTemplate:
     """Load the prompt template instructions for AI Agent to follow.
 
     The result is cached using the default Streamlit st.cache_data decorator.
@@ -181,7 +182,8 @@ def load_agent_prompt_template() -> ChatPromptTemplate:
     """
     return ChatPromptTemplate.from_messages([
         ("system", react_sys_prompt_template),
-        ("human", "{input}"),
+        ("placeholder", "{chat_history}"),
+        ("human", "{query}"),
         ("placeholder", "{agent_scratchpad}")
     ])
 
@@ -271,3 +273,24 @@ def load_search_engine() -> TavilySearch:
         include_answers=True,
         include_raw_content=True
     )
+
+def load_translator(query_lang: str, turn_pair_lang: str) -> Translator:
+    """Load translator model when filtering relevant turns.
+
+    This is just the case when the user's query are passed in a language that's different from 
+    that using in the turn being measured.
+
+    Args:
+        query_lang: The language used in the user's query.
+        turn_pair_lang: The language used in turn being measured as target translation.
+
+    Returns:
+        Translator model used to translate the query into a language that's used by the turn being 
+        measured.
+
+    """
+    return Translator(
+        from_lang=query_lang,
+        to_lang=turn_pair_lang
+    )
+
