@@ -25,24 +25,26 @@ SHOW_PROJECT_STATEMENT = """SELECT * FROM projects
 WHERE project_id = :project_id"""
 
 STORE_MANIFEST_STATEMENT = """INSERT INTO manifests (
-    manifest_id,
+    id,
     project_id,
     user_id,
-    manifest_no,
-    prompt,
+    num,
+    query,
+    response,
     context,
-    manifest_file,
+    file_name,
     created_at,
     updated_at
 )
 VALUES (
-    :manifest_id,
+    :id,
     :project_id,
     :user_id,
-    :manifest_no,
-    :prompt,
+    :num,
+    :query,
+    :response,
     :context,
-    :manifest_file,
+    :file_name,
     :created_at,
     :updated_at
 )"""
@@ -54,4 +56,4 @@ AND user_id = :user_id"""
 SHOW_MANIFEST_STATEMENT = """SELECT * FROM manifests
 WHERE project_id = :project_id
 AND user_id = :user_id
-AND manifest_no = :manifest_no"""
+AND num = :num"""
